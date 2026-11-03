@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DiagnosticoConcluido v1",
+  "description": "Evento Execucao -> OS: diagnostico concluido, com os servicos e pecas necessarios. Canal: SNS mecanica-execucao-eventos. Payload do envelope (envelope.schema.json) com type=DiagnosticoConcluido e version=1.",
+  "type": "object",
+  "required": [
+    "osId",
+    "itens"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "itens": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/itemServico"
+      }
+    }
+  },
+  "$defs": {
+    "itemServico": {
+      "type": "object",
+      "required": [
+        "servicoId",
+        "descricao",
+        "precoMaoDeObra",
+        "pecas"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "servicoId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "descricao": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "precoMaoDeObra": {
+          "type": "number",
+          "minimum": 0,
+          "multipleOf": 0.01,
+          "description": "Valor em reais com ate 2 casas (lido como BigDecimal)."
+        },
+        "pecas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pecaOrcada"
+          },
+          "description": "Vazio quando o servico nao usa pecas."
+        }
+      }
+    },
+    "pecaOrcada": {
+      "type": "object",
+      "required": [
+        "pecaId",
+        "descricao",
+        "quantidade",
+        "valorUnitario"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "pecaId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "descricao": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "quantidade": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "valorUnitario": {
+          "type": "number",
+          "minimum": 0,
+          "multipleOf": 0.01,
+          "description": "Valor em reais com ate 2 casas (lido como BigDecimal)."
+        }
+      }
+    }
+  }
+}

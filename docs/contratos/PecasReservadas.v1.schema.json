@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PecasReservadas v1",
+  "description": "Evento Execucao -> OS: todas as pecas foram reservadas. Canal: SNS mecanica-execucao-eventos. Payload do envelope (envelope.schema.json) com type=PecasReservadas e version=1.",
+  "type": "object",
+  "required": [
+    "osId",
+    "pecas"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "pecas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/pecaQuantidade"
+      }
+    }
+  },
+  "$defs": {
+    "pecaQuantidade": {
+      "type": "object",
+      "required": [
+        "pecaId",
+        "quantidade"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "pecaId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "quantidade": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

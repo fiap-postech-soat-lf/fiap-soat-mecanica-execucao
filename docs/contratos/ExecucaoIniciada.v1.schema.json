@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecucaoIniciada v1",
+  "description": "Evento Execucao -> OS: execucao iniciada (OS vai para EM_EXECUCAO). Canal: SNS mecanica-execucao-eventos. Payload do envelope (envelope.schema.json) com type=ExecucaoIniciada e version=1.",
+  "type": "object",
+  "required": [
+    "osId",
+    "iniciadaEm"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "iniciadaEm": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
