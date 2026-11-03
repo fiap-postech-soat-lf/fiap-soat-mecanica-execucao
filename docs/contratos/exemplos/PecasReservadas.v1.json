@@ -1,0 +1,24 @@
+{
+  "messageId": "0000000c-0000-4000-8000-00000000000c",
+  "type": "PecasReservadas",
+  "version": 1,
+  "sagaId": "0f9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f",
+  "osId": "7d1c2a4e-3b5f-4c6d-8e9f-0a1b2c3d4e5f",
+  "correlationId": "3f2b8c1e-7a4d-4e9b-b6c5-d8e7f6a5b4c3",
+  "causationId": "00000002-0000-4000-8000-000000000002",
+  "occurredAt": "2026-11-03T14:20:00.123Z",
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e000b-00f067aa0ba902b7-01",
+  "payload": {
+    "osId": "7d1c2a4e-3b5f-4c6d-8e9f-0a1b2c3d4e5f",
+    "pecas": [
+      {
+        "pecaId": "55555555-1111-4222-8333-666666666666",
+        "quantidade": 4
+      },
+      {
+        "pecaId": "77777777-4444-4555-8666-888888888888",
+        "quantidade": 1
+      }
+    ]
+  }
+}

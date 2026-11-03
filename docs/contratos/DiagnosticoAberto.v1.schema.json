@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DiagnosticoAberto v1",
+  "description": "Evento Execucao -> OS: diagnostico aberto (OS vai para EM_DIAGNOSTICO). Canal: SNS mecanica-execucao-eventos. Payload do envelope (envelope.schema.json) com type=DiagnosticoAberto e version=1.",
+  "type": "object",
+  "required": [
+    "osId",
+    "abertoEm"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "abertoEm": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

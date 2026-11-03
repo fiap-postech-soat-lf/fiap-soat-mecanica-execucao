@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReservaPecasLiberada v1",
+  "description": "Evento Execucao -> OS: reserva de pecas liberada (compensacao concluida). Canal: SNS mecanica-execucao-eventos. Payload do envelope (envelope.schema.json) com type=ReservaPecasLiberada e version=1.",
+  "type": "object",
+  "required": [
+    "osId"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
