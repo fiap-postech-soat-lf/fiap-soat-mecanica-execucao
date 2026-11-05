@@ -1,6 +1,28 @@
 # infra/ do serviço execucao
 
-O Terraform deste serviço começa na fase em que ele é implementado. Enquanto não houver `*.tf` aqui, o CI e o CD pulam o Terraform.
+Terraform do Execução, aplicado pelo `servico-cd.yml@v1` antes do build da imagem.
+
+> **Antecipado pela F4 (F4-k).** O OS precisa dos tópicos e das filas para a Saga existir no EKS, então o `infra/` já tem ECR, tópico, fila de comandos + DLQ e os SSM. **Nenhum consumidor está ligado**: o `app_config` não tem `APP_MESSAGING_CONSUMIDOR_FILAS`, e os comandos ficam na fila para inspeção. A F5 acrescenta as tabelas DynamoDB, o `APP_MESSAGING_CONSUMIDOR_FILAS` e o consumidor de `execucao-comandos`.
+
+## Recursos
+
+| Arquivo | Recursos |
+|---|---|
+| `data.tf` | Lê do SSM a chave pública do JWT (`/mecanica/identity/jwt-public-key`), publicada pelo Identity (ordem B4, F4-a) |
+| `ecr.tf` | Repositório `mecanica-execucao` (`MUTABLE`, `force_delete`, scan on push) e lifecycle das 10 imagens mais recentes |
+| `sns.tf` | Tópico `mecanica-execucao-eventos` e SSM `/mecanica/execucao/execucao-eventos-topic-arn` (lido pelo `infra/` do OS, que assina na `os-saga-respostas`) |
+| `sqs.tf` | Fila `mecanica-execucao-comandos` (visibility 30 s, retenção 4 dias) + DLQ, redrive após 5 recebimentos, e SSM `/mecanica/execucao/execucao-comandos-queue-url`. Sem queue policy: o OS envia direto com a `LabRole`, na mesma conta |
+
+- Tudo é destrutível sem sobra (regras 3.3 do plano da F2).
+- Ordem B4: `identity → execucao → billing → os → -auth`. O OS lê o SSM deste serviço no `plan`.
+
+## Comandos
+
+```bash
+terraform -chdir=infra init -backend=false
+terraform -chdir=infra validate
+terraform -chdir=infra test   # provider aws mockado, sem credencial
+```
 
 ## Contrato com o CD (`servico-cd.yml@v1`)
 
@@ -28,3 +50,5 @@ As chaves do `app_config` viram variáveis de ambiente do pod (`envFrom`).
 | `MESSAGING_DESTINO_<NOME>` | ARN do tópico ou URL da fila | declarada no `application.properties` do serviço como `app.messaging.destinos.<nome>=${MESSAGING_DESTINO_<NOME>:}` |
 
 Os destinos usam variável explícita porque a ligação relaxada do Spring não preserva o `-` das chaves de mapa vindas de variáveis de ambiente (`execucao-comandos` viraria `execucao.comandos`). A role do pod precisa de `sns:Publish` nos tópicos e de `sqs:SendMessage`, `ReceiveMessage`, `DeleteMessage` e `GetQueueAttributes` nas filas.
+
+Valores atuais do `app_config`: `AWS_REGION`, `JWT_PUBLIC_KEY` (PEM com `\n` escapado) e `APP_MESSAGING_DLQS` (URL da DLQ). O `app_secrets` fica **vazio** até a F5: o `kubectl create secret --from-env-file` aceita um arquivo vazio (conferido na F4).
