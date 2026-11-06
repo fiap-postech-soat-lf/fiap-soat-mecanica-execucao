@@ -100,6 +100,17 @@
 			<artifactId>dynamodb-enhanced</artifactId>
 		</dependency>
 
+		<!-- Catalogo de servicos do OS (F5-o): cache so de respostas 200 e retry programatico, sem AOP -->
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-retry</artifactId>
+			<version>2.2.0</version>
+		</dependency>
+
 		<!-- Observabilidade: metricas OTLP e leitura do span atual (o agente do EKS faz a ponte) -->
 		<dependency>
 			<groupId>io.micrometer</groupId>
@@ -142,6 +153,13 @@
 			<groupId>com.networknt</groupId>
 			<artifactId>json-schema-validator</artifactId>
 			<version>3.0.8</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<!-- OS simulado nos testes do OsCatalogoClient e do DiagnosticoIT (F5-o) -->
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock-standalone</artifactId>
+			<version>3.9.2</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

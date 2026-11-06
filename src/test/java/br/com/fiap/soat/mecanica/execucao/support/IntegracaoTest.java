@@ -1,5 +1,7 @@
 package br.com.fiap.soat.mecanica.execucao.support;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -49,6 +51,9 @@ public abstract class IntegracaoTest {
     protected static final SnsClient SNS;
     protected static final DynamoDbClient DYNAMO;
     protected static final Mensageria MENSAGERIA;
+    /** OS simulado (catalogo de servicos, F5-o); cada teste que o usa chama {@code OS.resetAll()}. */
+    protected static final WireMockServer OS =
+            new WireMockServer(WireMockConfiguration.options().dynamicPort());
 
     static {
         LOCALSTACK.start();
@@ -57,6 +62,7 @@ public abstract class IntegracaoTest {
         DYNAMO = configurar(DynamoDbClient.builder()).build();
         TabelasDeTeste.criar(DYNAMO);
         MENSAGERIA = Mensageria.criar();
+        OS.start();
     }
 
     @DynamicPropertySource
@@ -72,6 +78,8 @@ public abstract class IntegracaoTest {
         // Mensagem que falhou volta em 2 s (e nao em 30 s), para nao segurar a fila entre um teste e outro
         registry.add("app.messaging.consumidor.visibilidade-segundos", () -> "2");
         registry.add("app.messaging.dlqs", MENSAGERIA::dlq);
+        registry.add("app.os.base-url", OS::baseUrl);
+        registry.add("app.messaging.destinos.execucao-eventos", MENSAGERIA::topicoEventos);
         registry.add("app.messaging.destinos.teste-eventos", MENSAGERIA::topicoEventos);
         registry.add("app.messaging.destinos.teste-comandos", MENSAGERIA::filaComandos);
         registry.add("app.messaging.destinos.teste-quebrado", MENSAGERIA::topicoInexistente);
