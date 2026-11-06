@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IniciarExecucao v1",
+  "description": "Comando OS -> Execucao: inicia a execucao (pivo da saga). Canal: SQS mecanica-execucao-comandos. Payload do envelope (envelope.schema.json) com type=IniciarExecucao e version=1.",
+  "type": "object",
+  "required": [
+    "osId"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}

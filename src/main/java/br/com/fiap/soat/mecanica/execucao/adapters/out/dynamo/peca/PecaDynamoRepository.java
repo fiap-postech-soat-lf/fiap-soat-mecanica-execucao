@@ -1,9 +1,11 @@
 package br.com.fiap.soat.mecanica.execucao.adapters.out.dynamo.peca;
 
+import br.com.fiap.soat.mecanica.execucao.adapters.out.dynamo.Atributos;
 import br.com.fiap.soat.mecanica.execucao.adapters.out.dynamo.Itens;
 import br.com.fiap.soat.mecanica.execucao.adapters.out.dynamo.TabelasDynamo;
 import br.com.fiap.soat.mecanica.execucao.adapters.out.dynamo.TransacaoDynamo;
 import br.com.fiap.soat.mecanica.execucao.domain.enums.StatusRecursoEnum;
+import br.com.fiap.soat.mecanica.execucao.domain.exception.RegraNegocioException;
 import br.com.fiap.soat.mecanica.execucao.domain.peca.Peca;
 import br.com.fiap.soat.mecanica.execucao.domain.peca.PecaRepository;
 import org.springframework.stereotype.Repository;
@@ -13,6 +15,7 @@ import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
+import software.amazon.awssdk.services.dynamodb.model.Update;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -71,6 +74,46 @@ public class PecaDynamoRepository implements PecaRepository {
                     .expressionAttributeValues(Map.of(":v", AttributeValue.fromN(Long.toString(peca.getVersao()))));
         }
         transacao.registrar(TransactWriteItem.builder().put(put.build()).build());
+    }
+
+    @Override
+    public void reservar(UUID pecaId, int quantidade) {
+        atualizarEstoque(pecaId, quantidade,
+                "SET qtdDisponivel = qtdDisponivel - :n, qtdReservada = qtdReservada + :n, versao = versao + :um",
+                "qtdDisponivel >= :n AND #status = :ativo");
+    }
+
+    @Override
+    public void baixar(UUID pecaId, int quantidade) {
+        atualizarEstoque(pecaId, quantidade,
+                "SET qtdEstoque = qtdEstoque - :n, qtdReservada = qtdReservada - :n, versao = versao + :um",
+                "qtdReservada >= :n");
+    }
+
+    @Override
+    public void liberar(UUID pecaId, int quantidade) {
+        atualizarEstoque(pecaId, quantidade,
+                "SET qtdDisponivel = qtdDisponivel + :n, qtdReservada = qtdReservada - :n, versao = versao + :um",
+                "qtdReservada >= :n");
+    }
+
+    /** Update com conta e condicao no proprio item (uma condition expression nao faz conta, por isso o disponivel e materializado). */
+    private void atualizarEstoque(UUID pecaId, int quantidade, String atualizacao, String condicao) {
+        if (quantidade <= 0) {
+            throw new RegraNegocioException("Quantidade deve ser maior que zero");
+        }
+        Map<String, AttributeValue> valores = new HashMap<>();
+        valores.put(":n", Atributos.n(quantidade));
+        valores.put(":um", Atributos.n(1));
+        Update.Builder update = Update.builder().tableName(tabelas.pecas())
+                .key(Map.of("pecaId", AttributeValue.fromS(pecaId.toString())))
+                .updateExpression(atualizacao);
+        if (condicao.contains("#status")) {
+            valores.put(":ativo", AttributeValue.fromS(StatusRecursoEnum.ATIVO.name()));
+            update.expressionAttributeNames(Map.of("#status", "status"));
+        }
+        transacao.registrar(TransactWriteItem.builder().update(
+                update.conditionExpression(condicao).expressionAttributeValues(valores).build()).build());
     }
 
     static Map<String, AttributeValue> paraItem(Peca peca) {

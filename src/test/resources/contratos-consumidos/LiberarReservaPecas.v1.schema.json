@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LiberarReservaPecas v1",
+  "description": "Comando OS -> Execucao (compensacao): libera a reserva de pecas da OS. Canal: SQS mecanica-execucao-comandos. Payload do envelope (envelope.schema.json) com type=LiberarReservaPecas e version=1.",
+  "type": "object",
+  "required": [
+    "osId",
+    "motivo"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "motivo": {
+      "type": "string",
+      "enum": [
+        "ORCAMENTO_FALHOU",
+        "ORCAMENTO_RECUSADO",
+        "ORCAMENTO_EXPIRADO",
+        "DESISTENCIA",
+        "REVISAO"
+      ]
+    }
+  }
+}

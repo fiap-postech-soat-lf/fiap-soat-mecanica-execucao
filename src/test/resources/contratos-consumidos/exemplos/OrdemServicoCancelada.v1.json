@@ -1,0 +1,15 @@
+{
+  "messageId": "00000009-0000-4000-8000-000000000009",
+  "type": "OrdemServicoCancelada",
+  "version": 1,
+  "osId": "7d1c2a4e-3b5f-4c6d-8e9f-0a1b2c3d4e5f",
+  "correlationId": "3f2b8c1e-7a4d-4e9b-b6c5-d8e7f6a5b4c3",
+  "occurredAt": "2026-11-03T14:20:00.123Z",
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e0008-00f067aa0ba902b7-01",
+  "payload": {
+    "osId": "7d1c2a4e-3b5f-4c6d-8e9f-0a1b2c3d4e5f",
+    "clienteId": "5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d",
+    "motivo": "Orcamento recusado pelo cliente",
+    "ocorridaEm": "2026-11-03T15:00:00Z"
+  }
+}

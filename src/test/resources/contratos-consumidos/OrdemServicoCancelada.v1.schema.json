@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OrdemServicoCancelada v1",
+  "description": "Evento OS -> Identity: a OS foi cancelada. Canal: SNS mecanica-os-eventos. Payload do envelope (envelope.schema.json) com type=OrdemServicoCancelada e version=1.",
+  "type": "object",
+  "required": [
+    "osId",
+    "clienteId",
+    "motivo",
+    "ocorridaEm"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "osId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "clienteId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "motivo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "ocorridaEm": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
