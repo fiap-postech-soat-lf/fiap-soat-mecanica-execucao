@@ -121,6 +121,19 @@ class SagaParticipanteIT extends SagaIntegracaoTest {
         assertEstoque(peca, 8, 8, 0);
         assertThat(recarregar(osId).comandoAtendido("IniciarExecucao").orElseThrow().ids())
                 .containsExactly(iniciar.messageId(), reenvio1.messageId(), reenvio2.messageId());
+
+        // 8. a unica prestacao e finalizada pelo REST: a ordem fecha, sai da fila e o ExecucaoFinalizada
+        //    (validado contra o schema) leva o sagaId guardado na ordem e o tempo do servico
+        UUID prestacaoId = recarregar(osId).prestacoesAtivas().get(0).getId();
+        enviar(patch("/execucoes/{os}/prestacoes/{p}/finalizar", osId, prestacaoId), mecanico)
+                .andExpect(status().isOk());
+        JsonNode finalizada = aguardar(osId, "ExecucaoFinalizada", 1).get(0);
+        assertThat(finalizada.path("sagaId").asText()).isEqualTo(sagaId.toString());
+        assertThat(finalizada.at("/payload/tempos/0/servicoId").asText()).isEqualTo(servico.toString());
+        assertThat(finalizada.at("/payload/tempos/0/minutos").asLong()).isZero();
+        OrdemExecucao fim = recarregar(osId);
+        assertThat(fim.getStatus()).isEqualTo(StatusOrdem.FINALIZADA);
+        assertThat(item(tabelas.ordens(), "osId", osId.toString())).doesNotContainKey("fila");
     }
 
     @Test

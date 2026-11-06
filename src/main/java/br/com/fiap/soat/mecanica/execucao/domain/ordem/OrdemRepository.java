@@ -13,4 +13,11 @@ public interface OrdemRepository {
      * {@code versao} continuar a mesma (senao a transacao falha com conflito, F5-g).
      */
     void salvar(OrdemExecucao ordem);
+
+    /**
+     * Fila de execucao (GSI esparso {@code fila}, F5-j), ja ordenada por prioridade e data de abertura.
+     * {@code cursor} e o devolvido pela pagina anterior (nulo na primeira); cursor invalido lanca
+     * {@link IllegalArgumentException}.
+     */
+    PaginaFila listarFila(int tamanho, String cursor);
 }
