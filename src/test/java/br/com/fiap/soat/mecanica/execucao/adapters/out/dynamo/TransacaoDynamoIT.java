@@ -123,6 +123,8 @@ class TransacaoDynamoIT extends IntegracaoTest {
 
         assertThat(existe(a)).isFalse();
         assertThat(item(tabelas.pecas(), "pecaId", peca).get("versao").n()).isEqualTo("1");
+        // a tabela e compartilhada: um item sem os dados da peca quebraria a listagem do catalogo
+        DYNAMO.deleteItem(r -> r.tableName(tabelas.pecas()).key(Map.of("pecaId", s(peca))));
     }
 
     private static String id() {

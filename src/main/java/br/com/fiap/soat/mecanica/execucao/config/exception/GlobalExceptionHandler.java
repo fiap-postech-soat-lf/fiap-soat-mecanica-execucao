@@ -1,5 +1,9 @@
 package br.com.fiap.soat.mecanica.execucao.config.exception;
 
+import br.com.fiap.soat.mecanica.execucao.application.ordem.exception.IntegracaoOsException;
+import br.com.fiap.soat.mecanica.execucao.application.ordem.exception.OsIndisponivelException;
+import br.com.fiap.soat.mecanica.execucao.application.ordem.exception.ServicoInvalidoException;
+import br.com.fiap.soat.mecanica.execucao.application.transacao.ConflitoConcorrenciaException;
 import br.com.fiap.soat.mecanica.execucao.domain.exception.RecursoNaoEncontradoException;
 import br.com.fiap.soat.mecanica.execucao.domain.exception.RegraNegocioException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -138,6 +142,33 @@ public class GlobalExceptionHandler {
         );
     }
 
+
+    @ExceptionHandler(ServicoInvalidoException.class)
+    public ResponseEntity<ErrorResponse> handleServicoInvalido(ServicoInvalidoException ex) {
+        log.atInfo().addKeyValue("event", "servico_invalido")
+                .addKeyValue("reason", ex.getMessage()).log("Service rejected by the OS catalog");
+        return ResponseEntity.status(422).body(new ErrorResponse(422, "SERVICO_INVALIDO", ex.getMessage(), null, null, null));
+    }
+
+    @ExceptionHandler(OsIndisponivelException.class)
+    public ResponseEntity<ErrorResponse> handleOsIndisponivel(OsIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                new ErrorResponse(503, "OS_INDISPONIVEL", ex.getMessage(), null, null, null));
+    }
+
+    @ExceptionHandler(IntegracaoOsException.class)
+    public ResponseEntity<ErrorResponse> handleIntegracaoOs(IntegracaoOsException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
+                new ErrorResponse(502, "INTEGRACAO_OS", ex.getMessage(), null, null, null));
+    }
+
+    /** Versao da ordem ou estoque mudou entre a leitura e a escrita numa rota REST: nada foi gravado, o cliente repete (F5-g). */
+    @ExceptionHandler(ConflitoConcorrenciaException.class)
+    public ResponseEntity<ErrorResponse> handleConflitoConcorrente(ConflitoConcorrenciaException ex) {
+        log.atWarn().addKeyValue("event", "conflito_concorrente").log("Concurrent modification conflict");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(409, "CONFLITO_CONCORRENTE",
+                "O recurso foi alterado por outra operação; repita a requisição", null, null, null));
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {

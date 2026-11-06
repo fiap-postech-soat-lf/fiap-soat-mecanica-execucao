@@ -1,5 +1,9 @@
 package br.com.fiap.soat.mecanica.execucao.config.exception;
 
+import br.com.fiap.soat.mecanica.execucao.application.ordem.exception.IntegracaoOsException;
+import br.com.fiap.soat.mecanica.execucao.application.ordem.exception.OsIndisponivelException;
+import br.com.fiap.soat.mecanica.execucao.application.ordem.exception.ServicoInvalidoException;
+import br.com.fiap.soat.mecanica.execucao.application.transacao.ConflitoConcorrenciaException;
 import br.com.fiap.soat.mecanica.execucao.domain.exception.RecursoNaoEncontradoException;
 import br.com.fiap.soat.mecanica.execucao.domain.exception.RegraNegocioException;
 import org.junit.jupiter.api.DisplayName;
@@ -216,5 +220,44 @@ class GlobalExceptionHandlerTest {
         } finally {
             MDC.remove("correlationId");
         }
+    }
+
+    @Test
+    @DisplayName("Serviço inválido vira 422 SERVICO_INVALIDO")
+    void servicoInvalidoVira422() {
+        ResponseEntity<ErrorResponse> response = handler.handleServicoInvalido(new ServicoInvalidoException("inativo"));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(422);
+        assertThat(response.getBody().erro()).isEqualTo("SERVICO_INVALIDO");
+    }
+
+    @Test
+    @DisplayName("OS fora do ar vira 503 OS_INDISPONIVEL")
+    void osIndisponivelVira503() {
+        ResponseEntity<ErrorResponse> response = handler.handleOsIndisponivel(
+                new OsIndisponivelException("fora do ar", new RuntimeException()));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody().erro()).isEqualTo("OS_INDISPONIVEL");
+    }
+
+    @Test
+    @DisplayName("Token recusado pelo OS vira 502 INTEGRACAO_OS")
+    void integracaoOsVira502() {
+        ResponseEntity<ErrorResponse> response = handler.handleIntegracaoOs(
+                new IntegracaoOsException("recusou", new RuntimeException()));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(502);
+        assertThat(response.getBody().erro()).isEqualTo("INTEGRACAO_OS");
+    }
+
+    @Test
+    @DisplayName("Conflito de versão ou de estoque vira 409 CONFLITO_CONCORRENTE")
+    void conflitoVira409() {
+        ResponseEntity<ErrorResponse> response = handler.handleConflitoConcorrente(
+                new ConflitoConcorrenciaException("conflito", new RuntimeException()));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody().erro()).isEqualTo("CONFLITO_CONCORRENTE");
     }
 }

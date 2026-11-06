@@ -1,0 +1,67 @@
+package br.com.fiap.soat.mecanica.execucao.adapters.in.web.peca;
+
+import br.com.fiap.soat.mecanica.execucao.adapters.in.web.peca.dto.PecaAtualizarRequest;
+import br.com.fiap.soat.mecanica.execucao.adapters.in.web.peca.dto.PecaIncluirRequest;
+import br.com.fiap.soat.mecanica.execucao.adapters.in.web.peca.dto.PecaResponse;
+import br.com.fiap.soat.mecanica.execucao.adapters.in.web.peca.mapper.PecaResponseMapper;
+import br.com.fiap.soat.mecanica.execucao.application.peca.usecase.AlterarPecaUseCase;
+import br.com.fiap.soat.mecanica.execucao.application.peca.usecase.BuscarPecaPorIdUseCase;
+import br.com.fiap.soat.mecanica.execucao.application.peca.usecase.CadastrarPecaUseCase;
+import br.com.fiap.soat.mecanica.execucao.application.peca.usecase.ListarPecasUseCase;
+import br.com.fiap.soat.mecanica.execucao.domain.peca.Peca;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/pecas")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('ALMOXARIFE')")
+public class PecaController {
+
+    private final CadastrarPecaUseCase cadastrarPecaUseCase;
+    private final AlterarPecaUseCase alterarPecaUseCase;
+    private final BuscarPecaPorIdUseCase buscarPecaPorIdUseCase;
+    private final ListarPecasUseCase listarPecasUseCase;
+
+    @PostMapping
+    @Operation(summary = "Cadastrar uma peça")
+    public ResponseEntity<PecaResponse> cadastrar(@Valid @RequestBody PecaIncluirRequest request) {
+        Peca peca = cadastrarPecaUseCase.executar(request.nome(), request.marca(), request.valorUnitario(),
+                request.qtdEstoque());
+        return ResponseEntity.ok(PecaResponseMapper.toResponse(peca));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Atualizar uma peça (o estoque não pode ficar abaixo do reservado)")
+    public ResponseEntity<PecaResponse> alterar(@PathVariable UUID id,
+                                                @Valid @RequestBody PecaAtualizarRequest request) {
+        Peca peca = alterarPecaUseCase.executar(id, request.nome(), request.marca(), request.valorUnitario(),
+                request.qtdEstoque());
+        return ResponseEntity.ok(PecaResponseMapper.toResponse(peca));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Buscar uma peça por ID, com o estoque reservado e o disponível")
+    public ResponseEntity<PecaResponse> buscarPorId(@PathVariable UUID id) {
+        return ResponseEntity.ok(PecaResponseMapper.toResponse(buscarPecaPorIdUseCase.executar(id)));
+    }
+
+    @GetMapping
+    @Operation(summary = "Listar as peças")
+    public ResponseEntity<List<PecaResponse>> listar() {
+        return ResponseEntity.ok(listarPecasUseCase.executar().stream().map(PecaResponseMapper::toResponse).toList());
+    }
+}
