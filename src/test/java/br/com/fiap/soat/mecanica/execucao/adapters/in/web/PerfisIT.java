@@ -57,7 +57,10 @@ class PerfisIT extends IntegracaoTest {
                 new Rota(HttpMethod.POST, "/execucoes/" + OS + "/prestacoes/" + ID + "/pecas", ALOCACAO, a),
                 new Rota(HttpMethod.PATCH, "/execucoes/" + OS + "/alocacoes/" + ID + "/inativar", null, a),
                 new Rota(HttpMethod.PATCH, "/execucoes/" + OS + "/diagnostico/concluir", null, m),
-                new Rota(HttpMethod.PATCH, "/execucoes/" + OS + "/diagnostico/reabrir", null, m)
+                new Rota(HttpMethod.PATCH, "/execucoes/" + OS + "/diagnostico/reabrir", null, m),
+                new Rota(HttpMethod.PATCH, "/execucoes/" + OS + "/prestacoes/" + ID + "/finalizar", null, m),
+                new Rota(HttpMethod.GET, "/execucoes/fila", null, m),
+                new Rota(HttpMethod.GET, "/execucoes/tempo-medio", null, m)
         ).map(Arguments::of);
     }
 

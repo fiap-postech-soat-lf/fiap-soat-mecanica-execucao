@@ -9,15 +9,19 @@ import br.com.fiap.soat.mecanica.execucao.domain.ordem.Alocacao;
 import br.com.fiap.soat.mecanica.execucao.domain.ordem.ComandoAtendido;
 import br.com.fiap.soat.mecanica.execucao.domain.ordem.OrdemExecucao;
 import br.com.fiap.soat.mecanica.execucao.domain.ordem.OrdemRepository;
+import br.com.fiap.soat.mecanica.execucao.domain.ordem.PaginaFila;
 import br.com.fiap.soat.mecanica.execucao.domain.ordem.Prestacao;
 import br.com.fiap.soat.mecanica.execucao.domain.ordem.StatusOrdem;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,6 +66,48 @@ public class OrdemDynamoRepository implements OrdemRepository {
                     .expressionAttributeValues(Map.of(":v", AttributeValue.fromN(Long.toString(ordem.getVersao()))));
         }
         transacao.registrar(TransactWriteItem.builder().put(put.build()).build());
+    }
+
+    @Override
+    public PaginaFila listarFila(int tamanho, String cursor) {
+        QueryRequest.Builder consulta = QueryRequest.builder().tableName(tabelas.ordens())
+                .indexName(TabelasDynamo.INDICE_FILA)
+                .keyConditionExpression("fila = :f")
+                .expressionAttributeValues(Map.of(":f", Atributos.s(FILA_ATIVA)))
+                .scanIndexForward(true)
+                // Um item a mais diz se ha proxima pagina, sem devolver uma pagina final vazia
+                .limit(tamanho + 1);
+        if (cursor != null && !cursor.isBlank()) {
+            consulta.exclusiveStartKey(decodificarCursor(cursor));
+        }
+        List<Map<String, AttributeValue>> itens = new ArrayList<>(dynamo.query(consulta.build()).items());
+        String proximo = null;
+        if (itens.size() > tamanho) {
+            itens = itens.subList(0, tamanho);
+            proximo = codificarCursor(itens.get(tamanho - 1));
+        }
+        return new PaginaFila(itens.stream().map(OrdemDynamoRepository::paraDominio).toList(), proximo);
+    }
+
+    /** O cursor e a {@code LastEvaluatedKey} do indice ({@code osId} e {@code filaOrdem}), em base64 URL-safe. */
+    private static String codificarCursor(Map<String, AttributeValue> item) {
+        String chave = Itens.texto(item, "osId") + "|" + Itens.texto(item, "filaOrdem");
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(chave.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static Map<String, AttributeValue> decodificarCursor(String cursor) {
+        try {
+            String chave = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+            String[] partes = chave.split("\\|", 2);
+            if (partes.length != 2) {
+                throw new IllegalArgumentException("Cursor inválido");
+            }
+            UUID.fromString(partes[0]);
+            return Map.of("osId", Atributos.s(partes[0]), "fila", Atributos.s(FILA_ATIVA),
+                    "filaOrdem", Atributos.s(partes[1]));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Cursor inválido", e);
+        }
     }
 
     public static Map<String, AttributeValue> paraItem(OrdemExecucao ordem) {

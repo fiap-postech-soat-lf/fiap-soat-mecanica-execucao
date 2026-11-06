@@ -10,6 +10,7 @@ import br.com.fiap.soat.mecanica.execucao.application.ordem.dto.OrdemDetalhe;
 import br.com.fiap.soat.mecanica.execucao.application.ordem.usecase.AlocarPecaUseCase;
 import br.com.fiap.soat.mecanica.execucao.application.ordem.usecase.BuscarOrdemUseCase;
 import br.com.fiap.soat.mecanica.execucao.application.ordem.usecase.ConcluirDiagnosticoUseCase;
+import br.com.fiap.soat.mecanica.execucao.application.ordem.usecase.FinalizarPrestacaoUseCase;
 import br.com.fiap.soat.mecanica.execucao.application.ordem.usecase.InativarAlocacaoUseCase;
 import br.com.fiap.soat.mecanica.execucao.application.ordem.usecase.InativarPrestacaoUseCase;
 import br.com.fiap.soat.mecanica.execucao.application.ordem.usecase.IncluirPrestacaoUseCase;
@@ -43,6 +44,7 @@ public class OrdemController {
     private final InativarAlocacaoUseCase inativarAlocacaoUseCase;
     private final ConcluirDiagnosticoUseCase concluirDiagnosticoUseCase;
     private final ReabrirDiagnosticoUseCase reabrirDiagnosticoUseCase;
+    private final FinalizarPrestacaoUseCase finalizarPrestacaoUseCase;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('MECANICO','ALMOXARIFE')")
@@ -82,6 +84,13 @@ public class OrdemController {
     @Operation(summary = "Inativar uma peça alocada")
     public ResponseEntity<AlocacaoResponse> inativarAlocacao(@PathVariable UUID osId, @PathVariable UUID id) {
         return ResponseEntity.ok(OrdemResponseMapper.toResponse(inativarAlocacaoUseCase.executar(osId, id)));
+    }
+
+    @PatchMapping("/prestacoes/{id}/finalizar")
+    @PreAuthorize("hasRole('MECANICO')")
+    @Operation(summary = "Finalizar uma prestação em execução (a última finaliza a ordem e emite ExecucaoFinalizada)")
+    public ResponseEntity<OrdemResponse> finalizarPrestacao(@PathVariable UUID osId, @PathVariable UUID id) {
+        return ResponseEntity.ok(OrdemResponseMapper.toResponse(finalizarPrestacaoUseCase.executar(osId, id)));
     }
 
     @PatchMapping("/diagnostico/concluir")
