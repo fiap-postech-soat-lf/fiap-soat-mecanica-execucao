@@ -13,6 +13,8 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.Message;
@@ -41,16 +43,19 @@ public abstract class IntegracaoTest {
     /** Ultima tag 4.x (edicao community, sem LOCALSTACK_AUTH_TOKEN). */
     static final LocalStackContainer LOCALSTACK =
             new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.14.0"))
-                    .withServices(Service.SNS, Service.SQS);
+                    .withServices(Service.SNS, Service.SQS, Service.DYNAMODB);
 
     protected static final SqsClient SQS;
     protected static final SnsClient SNS;
+    protected static final DynamoDbClient DYNAMO;
     protected static final Mensageria MENSAGERIA;
 
     static {
         LOCALSTACK.start();
         SQS = configurar(SqsClient.builder()).build();
         SNS = configurar(SnsClient.builder()).build();
+        DYNAMO = configurar(DynamoDbClient.builder()).build();
+        TabelasDeTeste.criar(DYNAMO);
         MENSAGERIA = Mensageria.criar();
     }
 
@@ -70,6 +75,12 @@ public abstract class IntegracaoTest {
         registry.add("app.messaging.destinos.teste-eventos", MENSAGERIA::topicoEventos);
         registry.add("app.messaging.destinos.teste-comandos", MENSAGERIA::filaComandos);
         registry.add("app.messaging.destinos.teste-quebrado", MENSAGERIA::topicoInexistente);
+    }
+
+    /** Item da tabela pela chave simples (leitura consistente); mapa vazio se nao existir. */
+    protected static Map<String, AttributeValue> item(String tabela, String atributoChave, String valor) {
+        return DYNAMO.getItem(r -> r.tableName(tabela).consistentRead(true)
+                .key(Map.of(atributoChave, AttributeValue.fromS(valor)))).item();
     }
 
     /** Fila criada na hora, para testes que precisam de uma fila so deles. */

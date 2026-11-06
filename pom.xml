@@ -90,6 +90,16 @@
 			<artifactId>sqs</artifactId>
 		</dependency>
 
+		<!-- DynamoDB (F5-f): o Enhanced Client so mapeia (TableSchema); as escritas usam a API de baixo nivel -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>dynamodb</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>dynamodb-enhanced</artifactId>
+		</dependency>
+
 		<!-- Observabilidade: metricas OTLP e leitura do span atual (o agente do EKS faz a ponte) -->
 		<dependency>
 			<groupId>io.micrometer</groupId>
