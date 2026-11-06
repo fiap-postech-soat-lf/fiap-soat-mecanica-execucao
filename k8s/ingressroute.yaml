@@ -22,7 +22,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: PathPrefix(`/execucoes`) || PathPrefix(`/prestacoes`) || PathPrefix(`/pecas`) || PathPrefix(`/alocacoes`)
+      match: PathPrefix(`/execucoes`) || PathPrefix(`/pecas`)
       services:
         - name: mecanica-${SERVICO}
           port: 8080

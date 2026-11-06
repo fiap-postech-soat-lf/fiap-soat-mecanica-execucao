@@ -2,19 +2,20 @@
 
 Terraform do Execução, aplicado pelo `servico-cd.yml@v1` antes do build da imagem.
 
-> **Antecipado pela F4 (F4-k).** O OS precisa dos tópicos e das filas para a Saga existir no EKS, então o `infra/` já tem ECR, tópico, fila de comandos + DLQ e os SSM. **Nenhum consumidor está ligado**: o `app_config` não tem `APP_MESSAGING_CONSUMIDOR_FILAS`, e os comandos ficam na fila para inspeção. A F5 acrescenta as tabelas DynamoDB, o `APP_MESSAGING_CONSUMIDOR_FILAS` e o consumidor de `execucao-comandos`.
+> O ECR, o tópico, a fila de comandos e os SSM nasceram antecipados na F4 (F4-k). A F5 acrescentou as 6 tabelas DynamoDB, a fila `os-eventos` e o consumidor ligado.
 
 ## Recursos
 
 | Arquivo | Recursos |
 |---|---|
-| `data.tf` | Lê do SSM a chave pública do JWT (`/mecanica/identity/jwt-public-key`), publicada pelo Identity (ordem B4, F4-a) |
+| `data.tf` | Lê do SSM a chave pública do JWT (`/mecanica/identity/jwt-public-key`), publicada pelo Identity (ordem B4, F4-a), e a conta (`aws_caller_identity`) para montar o ARN do tópico do OS |
+| `dynamodb.tf` | As 6 tabelas da RFC-F4-02 (`execucao-ordens`, `-pecas`, `-reservas`, `-outbox`, `-idempotencia`, `-tempos`), `PAY_PER_REQUEST` e sem `deletion_protection`. GSIs esparsos `fila` (ordens) e `pendentes` (outbox), ambos com projeção `ALL`; TTL em `expiraEm` na outbox e na idempotência |
 | `ecr.tf` | Repositório `mecanica-execucao` (`MUTABLE`, `force_delete`, scan on push) e lifecycle das 10 imagens mais recentes |
 | `sns.tf` | Tópico `mecanica-execucao-eventos` e SSM `/mecanica/execucao/execucao-eventos-topic-arn` (lido pelo `infra/` do OS, que assina na `os-saga-respostas`) |
-| `sqs.tf` | Fila `mecanica-execucao-comandos` (visibility 30 s, retenção 4 dias) + DLQ, redrive após 5 recebimentos, e SSM `/mecanica/execucao/execucao-comandos-queue-url`. Sem queue policy: o OS envia direto com a `LabRole`, na mesma conta |
+| `sqs.tf` | Fila `mecanica-execucao-comandos` (visibility 30 s, retenção 4 dias) + DLQ, redrive após 5 recebimentos, e SSM `/mecanica/execucao/execucao-comandos-queue-url`. Sem queue policy: o OS envia direto com a `LabRole`, na mesma conta. Fila `mecanica-execucao-os-eventos` + DLQ (F5-b), com queue policy que permite `sqs:SendMessage` só do tópico `mecanica-os-eventos` (ARN montado pelo nome, porque o tópico nasce depois na ordem B4), e SSM `/mecanica/execucao/os-eventos-queue-arn`. A assinatura filtrada (`OrdemServicoCancelada`) fica no `infra/` do OS, por exceção (ADR-F4-03) |
 
 - Tudo é destrutível sem sobra (regras 3.3 do plano da F2).
-- Ordem B4: `identity → execucao → billing → os → -auth`. O OS lê o SSM deste serviço no `plan`.
+- Ordem B4: `identity → execucao → billing → os → -auth`. O OS lê três SSM deste serviço no `plan` (tópico de eventos, URL da fila de comandos e ARN da fila `os-eventos`).
 
 ## Comandos
 
@@ -51,4 +52,4 @@ As chaves do `app_config` viram variáveis de ambiente do pod (`envFrom`).
 
 Os destinos usam variável explícita porque a ligação relaxada do Spring não preserva o `-` das chaves de mapa vindas de variáveis de ambiente (`execucao-comandos` viraria `execucao.comandos`). A role do pod precisa de `sns:Publish` nos tópicos e de `sqs:SendMessage`, `ReceiveMessage`, `DeleteMessage` e `GetQueueAttributes` nas filas.
 
-Valores atuais do `app_config`: `AWS_REGION`, `JWT_PUBLIC_KEY` (PEM com `\n` escapado) e `APP_MESSAGING_DLQS` (URL da DLQ). O `app_secrets` fica **vazio** até a F5: o `kubectl create secret --from-env-file` aceita um arquivo vazio (conferido na F4).
+Valores atuais do `app_config` (6 chaves, sem senha): `AWS_REGION`, `JWT_PUBLIC_KEY` (PEM com `\n` escapado), `APP_OS_BASE_URL` (DNS do cluster), `APP_MESSAGING_CONSUMIDOR_FILAS` (URLs de `execucao-comandos` e `execucao-os-eventos`), `APP_MESSAGING_DLQS` (URLs das 2 DLQs) e `MESSAGING_DESTINO_EXECUCAO_EVENTOS` (ARN do tópico). O `app_secrets` fica **vazio**: o serviço usa a `LabRole` e não tem segredo (o `kubectl create secret --from-env-file` aceita um arquivo vazio, conferido na F4).
