@@ -8,6 +8,7 @@ import br.com.fiap.soat.mecanica.execucao.application.mensageria.OutboxPort;
 import br.com.fiap.soat.mecanica.execucao.application.transacao.TransacaoPort;
 import br.com.fiap.soat.mecanica.execucao.support.IntegracaoTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.opentelemetry.api.trace.Span;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -183,6 +185,29 @@ class OutboxPublisherDynamoIT extends IntegracaoTest {
                     .forEach(encontradas::add);
         }
         return encontradas;
+    }
+
+    @Test
+    void publicaComOTraceDoEnvelopeComoContextoAtual() throws Exception {
+        String traceId = "0af7651916cd43dd8448eb211c80319c";
+        MensagemEnvelope base = envelope();
+        MensagemEnvelope envelope = new MensagemEnvelope(base.messageId(), base.type(), base.version(), base.sagaId(),
+                base.osId(), base.correlationId(), null, base.occurredAt(),
+                "00-" + traceId + "-b7ad6b7169203331-01", base.payload());
+        List<String> vistos = new CopyOnWriteArrayList<>();
+        SnsSqsPublicador captura = mock(SnsSqsPublicador.class);
+        doAnswer(i -> vistos.add(Span.current().getSpanContext().getTraceId())).when(captura).publicar(any(), any(), any());
+        transacao.executar(() -> outbox.registrar("teste-eventos", envelope));
+
+        novo(captura).publicarPendentes();
+
+        // o agendador da aplicacao pode ter vencido a corrida (ele tambem restaura o contexto)
+        if (vistos.isEmpty()) {
+            assertThat(recebidas(envelope, 1)).hasSize(1);
+        } else {
+            assertThat(vistos).containsExactly(traceId);
+        }
+        assertThat(Span.current().getSpanContext().isValid()).isFalse();
     }
 
     private MensagemEnvelope envelope() {

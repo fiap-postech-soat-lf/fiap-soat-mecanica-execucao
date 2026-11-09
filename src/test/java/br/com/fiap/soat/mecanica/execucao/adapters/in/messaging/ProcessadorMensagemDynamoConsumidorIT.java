@@ -9,6 +9,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -37,7 +39,7 @@ class ProcessadorMensagemDynamoConsumidorIT extends IntegracaoTest {
             throw new IllegalStateException("falha de negocio");
         });
         String fila = criarFila("processador");
-        SqsConsumidor consumidor = new SqsConsumidor(SQS, objectMapper, processador, List.of(fila), 1, 30);
+        SqsConsumidor consumidor = new SqsConsumidor(SQS, objectMapper, processador, new SimpleMeterRegistry(), Clock.systemUTC(), List.of(fila), 1, 30);
         consumidor.start();
         try {
             MensagemEnvelope envelope = new MensagemEnvelope(UUID.randomUUID(), HandlerDeTeste.TIPO, 1,

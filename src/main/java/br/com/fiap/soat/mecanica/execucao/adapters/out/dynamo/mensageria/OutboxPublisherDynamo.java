@@ -2,6 +2,8 @@ package br.com.fiap.soat.mecanica.execucao.adapters.out.dynamo.mensageria;
 
 import br.com.fiap.soat.mecanica.execucao.adapters.out.dynamo.TabelasDynamo;
 import br.com.fiap.soat.mecanica.execucao.adapters.out.messaging.SnsSqsPublicador;
+import br.com.fiap.soat.mecanica.execucao.application.mensageria.ContextoRastreamento;
+import io.opentelemetry.context.Scope;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -101,7 +103,7 @@ public class OutboxPublisherDynamo {
     private boolean publicar(Map<String, AttributeValue> linha) {
         String destino = linha.get("destino").s();
         String tipo = linha.get("tipo").s();
-        try {
+        try (Scope ignored = ContextoRastreamento.doEnvelope(linha.get("envelope").s()).makeCurrent()) {
             publicador.publicar(destino, tipo, linha.get("envelope").s());
         } catch (RuntimeException e) {
             log.atWarn().addKeyValue("event", "outbox_publicacao_falhou")

@@ -1,5 +1,6 @@
 package br.com.fiap.soat.mecanica.execucao.adapters.in.messaging;
 
+import br.com.fiap.soat.mecanica.execucao.adapters.out.messaging.DestinosMensageria;
 import br.com.fiap.soat.mecanica.execucao.application.mensageria.MensagemEnvelope;
 import br.com.fiap.soat.mecanica.execucao.application.mensageria.ProcessadorMensagem;
 import br.com.fiap.soat.mecanica.execucao.config.observability.Mdc;
@@ -11,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,7 @@ class SqsConsumidorIT extends IntegracaoTest {
     private final List<MensagemEnvelope> processadas = new CopyOnWriteArrayList<>();
     private final List<Map<String, String>> mdcDurante = new CopyOnWriteArrayList<>();
     private volatile boolean falhar;
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private String fila;
     private SqsConsumidor consumidor;
 
@@ -45,7 +49,7 @@ class SqsConsumidorIT extends IntegracaoTest {
                 throw new IllegalStateException("falha de teste");
             }
         };
-        consumidor = new SqsConsumidor(SQS, objectMapper, processador, List.of(fila), 1, 30);
+        consumidor = new SqsConsumidor(SQS, objectMapper, processador, registry, Clock.systemUTC(), List.of(fila), 1, 30);
         consumidor.start();
     }
 
@@ -68,6 +72,25 @@ class SqsConsumidorIT extends IntegracaoTest {
                 .containsEntry(Mdc.MESSAGE_ID, envelope.messageId().toString())
                 .containsEntry(Mdc.SAGA_ID, envelope.sagaId().toString())
                 .doesNotContainKey(Mdc.OS_ID);
+    }
+
+    @Test
+    void mensagemProcessadaRegistraOAtrasoPorFilaETipo() throws Exception {
+        enviar(objectMapper.writeValueAsString(envelope()));
+
+        await().until(() -> processadas.size() == 1 && mensagensNaFila(fila) == 0);
+
+        assertThat(registry.get("mensagem.atraso").tag("tipo", "TesteConsumidor")
+                .tag("fila", DestinosMensageria.nomeDaFila(fila)).timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    void jsonInvalidoNaoRegistraAtraso() {
+        enviar("{nao e json");
+
+        await().until(() -> mensagensEmVoo(fila) == 1);
+
+        assertThat(registry.find("mensagem.atraso").timer()).isNull();
     }
 
     @Test
@@ -100,8 +123,8 @@ class SqsConsumidorIT extends IntegracaoTest {
 
     @Test
     void semProcessadorOuSemFilasNaoInicia() {
-        SqsConsumidor semProcessador = new SqsConsumidor(SQS, objectMapper, (ProcessadorMensagem) null, List.of(fila), 1, 30);
-        SqsConsumidor semFilas = new SqsConsumidor(SQS, objectMapper, envelope -> { }, List.of(""), 1, 30);
+        SqsConsumidor semProcessador = new SqsConsumidor(SQS, objectMapper, (ProcessadorMensagem) null, registry, Clock.systemUTC(), List.of(fila), 1, 30);
+        SqsConsumidor semFilas = new SqsConsumidor(SQS, objectMapper, envelope -> { }, registry, Clock.systemUTC(), List.of(""), 1, 30);
 
         semProcessador.start();
         semFilas.start();

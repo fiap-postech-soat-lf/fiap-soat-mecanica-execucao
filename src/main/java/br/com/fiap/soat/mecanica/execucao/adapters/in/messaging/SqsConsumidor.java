@@ -6,6 +6,8 @@ import br.com.fiap.soat.mecanica.execucao.application.mensageria.ProcessadorMens
 import br.com.fiap.soat.mecanica.execucao.config.observability.Mdc;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +18,9 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.Message;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +46,8 @@ public class SqsConsumidor implements SmartLifecycle {
     private final SqsClient sqs;
     private final ObjectMapper objectMapper;
     private final ProcessadorMensagem processador;
+    private final MeterRegistry registry;
+    private final Clock clock;
     private final List<String> filas;
     private final int esperaSegundos;
     private final int visibilidadeSegundos;
@@ -53,17 +59,21 @@ public class SqsConsumidor implements SmartLifecycle {
             SqsClient sqs,
             ObjectMapper objectMapper,
             ObjectProvider<ProcessadorMensagem> processador,
+            MeterRegistry registry,
+            Clock clock,
             @Value("${app.messaging.consumidor.filas:}") List<String> filas,
             @Value("${app.messaging.consumidor.espera-segundos:20}") int esperaSegundos,
             @Value("${app.messaging.consumidor.visibilidade-segundos:30}") int visibilidadeSegundos) {
-        this(sqs, objectMapper, processador.getIfAvailable(), filas, esperaSegundos, visibilidadeSegundos);
+        this(sqs, objectMapper, processador.getIfAvailable(), registry, clock, filas, esperaSegundos, visibilidadeSegundos);
     }
 
     SqsConsumidor(SqsClient sqs, ObjectMapper objectMapper, ProcessadorMensagem processador,
-                  List<String> filas, int esperaSegundos, int visibilidadeSegundos) {
+                  MeterRegistry registry, Clock clock, List<String> filas, int esperaSegundos, int visibilidadeSegundos) {
         this.sqs = sqs;
         this.objectMapper = objectMapper;
         this.processador = processador;
+        this.registry = registry;
+        this.clock = clock;
         this.filas = filas.stream().filter(fila -> !fila.isBlank()).toList();
         this.esperaSegundos = esperaSegundos;
         this.visibilidadeSegundos = visibilidadeSegundos;
@@ -154,6 +164,7 @@ public class SqsConsumidor implements SmartLifecycle {
         }
 
         try (var ignored = Mdc.abrir(contexto(envelope))) {
+            registrarAtraso(fila, envelope);
             processador.processar(envelope);
             sqs.deleteMessage(r -> r.queueUrl(fila).receiptHandle(mensagem.receiptHandle()));
             log.atDebug().addKeyValue("event", "mensagem_processada")
@@ -168,6 +179,20 @@ public class SqsConsumidor implements SmartLifecycle {
                     .setCause(e)
                     .log("Falha ao processar a mensagem; ela volta para a fila");
         }
+    }
+
+    /** Atraso desde a criacao da mensagem (inclui o tempo no outbox e na fila), medido antes do handler. */
+    private void registrarAtraso(String fila, MensagemEnvelope envelope) {
+        if (envelope.occurredAt() == null) {
+            return;
+        }
+        Duration atraso = Duration.between(envelope.occurredAt(), Instant.now(clock));
+        Timer.builder("mensagem.atraso")
+                .description("Tempo entre a criacao da mensagem e o inicio do seu processamento")
+                .tag("fila", DestinosMensageria.nomeDaFila(fila))
+                .tag("tipo", String.valueOf(envelope.type()))
+                .register(registry)
+                .record(atraso.isNegative() ? Duration.ZERO : atraso);
     }
 
     private static Map<String, Object> contexto(MensagemEnvelope envelope) {
