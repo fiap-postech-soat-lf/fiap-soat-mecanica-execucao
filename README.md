@@ -1,8 +1,11 @@
 # fiap-soat-mecanica-execucao
 
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=fiap-postech-soat-lf_fiap-soat-mecanica-execucao&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=fiap-postech-soat-lf_fiap-soat-mecanica-execucao)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=fiap-postech-soat-lf_fiap-soat-mecanica-execucao&metric=coverage)](https://sonarcloud.io/component_measures?id=fiap-postech-soat-lf_fiap-soat-mecanica-execucao&metric=coverage)
+
 Microsserviço **execucao** da **Fase 4** da Oficina Mecânica do Braia (Tech Challenge FIAP SOAT).
 
-> 🚧 Rascunho da F5. As seções marcadas com *TODO* são completadas e revisadas na F9.
+Veja também o [diagrama geral da arquitetura](https://github.com/fiap-postech-soat-lf/fiap-soat-mecanica-k8s/blob/main/docs/arquitetura-fase4/diagrama/arquitetura-aws-fase4.png). Vídeo da entrega: *link entra depois do upload*.
 
 ## Responsabilidade
 
@@ -173,8 +176,62 @@ O `infra/` cria o ECR, as 6 tabelas DynamoDB, o tópico `mecanica-execucao-event
 
 ADRs transversais e RFCs no `-k8s` (`docs/arquitetura-fase4/`): ADR-F4-03 (SNS + SQS), ADR-F4-04 (outbox e consumidor idempotente), ADR-F4-05 (database per service), ADR-F4-09 (REST síncrono) e RFC-F4-02 (modelagem DynamoDB). Decisões só deste serviço ficam em `docs/adr/`.
 
-## TODO (F9)
+## Componentes e fluxo da reserva
 
-- Diagrama de componentes revisado e imagem do fluxo da reserva.
-- Exemplos de `curl` para o fluxo do diagnóstico.
-- Link para o vídeo de demonstração.
+```mermaid
+flowchart LR
+    M[Mecânico / Almoxarife] -->|REST + JWT| C[controllers]
+    C --> UC[casos de uso]
+    Q1[[SQS execucao-comandos]] --> SC[SqsConsumidor]
+    Q2[[SQS execucao-os-eventos]] --> SC
+    SC --> H[handlers idempotentes]
+    UC & H --> TX[TransacaoDynamo<br/>TransactWriteItems]
+    TX --> DDB[(DynamoDB<br/>6 tabelas)]
+    DDB -. GSI pendentes .-> OP[OutboxPublisherDynamo<br/>1 s]
+    OP --> SNS[[SNS execucao-eventos]]
+    UC --> OSC[OsCatalogoClient<br/>JWT repassado, cache 5 min]
+    OSC -->|GET /servicos/id| OS[OS Service]
+```
+
+A reserva é uma única transação: ou reserva todas as peças da OS, ou nenhuma.
+
+```mermaid
+sequenceDiagram
+    participant OS as OS (Saga)
+    participant Q as execucao-comandos
+    participant E as Execução
+    participant D as DynamoDB
+    OS->>Q: ReservarPecas (osId, itens)
+    Q->>E: mensagem
+    E->>D: TransactWriteItems (reserva + atualiza estoque, condição qtdDisponivel >= qtd)
+    alt todas as peças têm estoque
+        D-->>E: ok
+        E->>D: outbox: PecasReservadas
+    else alguma sem estoque
+        D-->>E: ConditionalCheckFailed (nada é gravado)
+        E->>D: outbox: ReservaPecasRecusada
+    end
+    D-->>OS: OutboxPublisher → SNS execucao-eventos → os-saga-respostas
+```
+
+## Exemplos de `curl`
+
+`API` é a URL do API Gateway (`aws ssm get-parameter --name /mecanica/auth/api-url --query Parameter.Value --output text`). Os usuários e a senha do seed estão no `V5__seed.sql` do Identity.
+
+```bash
+TOKEN=$(curl -s -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"mecanico@mecanica.test","senha":"Senha@123"}' | jq -r .accessToken)
+
+# 1. Fila de execução do mecânico (já ordenada por prioridade)
+curl -s "$API/execucoes/fila?size=20" -H "Authorization: Bearer $TOKEN"
+
+# 2. Adiciona o serviço do catálogo à ordem (o Execução valida no OS)
+curl -s -X POST "$API/execucoes/$OS_ID/prestacoes" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"servicoId":"77777777-7777-7777-7777-777777777777","precoMaoDeObra":80.00}'
+
+# 3. Conclui o diagnóstico (a Saga reserva as peças e pede o orçamento)
+curl -s -X PATCH "$API/execucoes/$OS_ID/diagnostico/concluir" -H "Authorization: Bearer $TOKEN"
+```
+
+Uma collection Postman com todos os serviços está em [`docs/postman/` do `-os`](https://github.com/fiap-postech-soat-lf/fiap-soat-mecanica-os/tree/main/docs/postman).
