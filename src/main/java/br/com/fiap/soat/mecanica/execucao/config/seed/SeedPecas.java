@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Grava as 3 pecas do V9 do monolito com {@code PutItem} condicional (F5-l): os UUIDs ficam estaveis (ADR-F4-13)
+ * Grava as 3 pecas do seed com {@code PutItem} condicional (F5-l): os UUIDs ficam estaveis (ADR-F4-13)
  * e um estoque ja alterado nunca e sobrescrito. Ligado por {@code app.seed.pecas.enabled} (padrao {@code true}).
  */
 @Slf4j
