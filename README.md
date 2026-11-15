@@ -103,7 +103,7 @@ As quantidades são somadas por `pecaId` antes da transação (uma transação n
 
 **Devolução sem duplicar:** só o `LiberarReservaPecas` devolve o estoque, com a reserva `ATIVA → LIBERADA` condicional. O `OrdemServicoCancelada` apenas tira a ordem da fila, para o estoque não voltar duas vezes (`CancelamentoIT`, nas duas ordens de chegada).
 
-**Seed:** as 3 peças do monolito entram por um `ApplicationRunner` (`SeedPecas`) com `Put` condicional, ligado por `app.seed.pecas.enabled`. Pelo Terraform, cada `apply` devolveria o estoque ao valor inicial.
+**Seed:** as 3 peças do seed entram por um `ApplicationRunner` (`SeedPecas`) com `Put` condicional, ligado por `app.seed.pecas.enabled`. Pelo Terraform, cada `apply` devolveria o estoque ao valor inicial.
 
 ## Mensagens
 
